@@ -1,0 +1,1 @@
+python .\main.py --dataset=cifar10 --model=simple-cnn --alg=moon --lr=0.01 --mu=5 --epochs=10 --comm_round=100 --n_parties=10 --partition=noniid --beta=0.5 --logdir='./logs/' --device='cpu'
