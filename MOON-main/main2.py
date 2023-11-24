@@ -104,7 +104,7 @@ def init_nets(net_configs, n_parties, args, device='cpu'):
 
     return nets, model_meta_data, layer_type
 
-
+#Training Functions: The code provides functions for training individual neural networks (train_net), federated learning with proximal term (train_net_fedprox), and federated contrastive learning (train_net_fedcon).
 def train_net(net_id, net, train_dataloader, test_dataloader, epochs, lr, args_optimizer, args, device="cpu"):
     net = nn.DataParallel(net)
     net.cuda()
@@ -339,7 +339,7 @@ def train_net_fedcon(net_id, net, global_net, previous_nets, train_dataloader, t
     logger.info(' ** Training complete **')
     return train_acc, test_acc
 
-
+# Local Training Function: The local_train_net function simulates local training on each participating client and updates the global model accordingly. This function handles different federated learning strategies based on the specified algorithm (FedAvg, FedProx, Moon, Local Training).
 def local_train_net(nets, args, net_dataidx_map, train_dl=None, test_dl=None, global_model = None, prev_model_pool = None, server_c = None, clients_c = None, round=None, device="cpu"):
     avg_acc = 0.0
     acc_list = []
@@ -499,9 +499,17 @@ if __name__ == '__main__':
             local_train_net(nets_this_round, args, net_dataidx_map, train_dl=train_dl, test_dl=test_dl, global_model = global_model, prev_model_pool=old_nets_pool, round=round, device=device)
 
 
+            valueRandom = random.randint(1, 10)
+            total_data_points = 0
 
-            total_data_points = sum([len(net_dataidx_map[r]) for r in party_list_this_round])
-            fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in party_list_this_round]
+            selected_party_list = []
+            for r in party_list_this_round:
+                valueRandom = random.randint(1, 10)
+                if valueRandom>5:
+                    total_data_points += len(net_dataidx_map[r])
+                    selected_party_list.append(r)
+
+            fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in selected_party_list]
 
 
             for net_id, net in enumerate(nets_this_round.values()):
