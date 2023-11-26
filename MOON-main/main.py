@@ -537,33 +537,44 @@ if __name__ == '__main__':
                     for param in net.parameters():
                         param.requires_grad = False
 
+        # Communication Round loop 
+        # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
             logger.info("in comm round:" + str(round))
+            # Selecting Parties for the Current Round
             party_list_this_round = party_list_rounds[round]
 
             global_model.eval()
             for param in global_model.parameters():
                 param.requires_grad = False
+
+            # Copying Global Model's State for Federated Averaging
             global_w = global_model.state_dict()
 
+            # Copying Global Model's State for Server Momentum (if specified)
             if args.server_momentum:
                 old_w = copy.deepcopy(global_model.state_dict())
 
+            # Loading Global Model's State to Local Models:
+            # The state dictionary of the global model (global_w) is loaded into each local model participating in the current round of communication.
             nets_this_round = {k: nets[k] for k in party_list_this_round}
             for net in nets_this_round.values():
                 net.load_state_dict(global_w)
 
-
+            # Training Local Models:
             local_train_net(nets_this_round, args, net_dataidx_map, train_dl=train_dl, test_dl=test_dl, global_model = global_model, prev_model_pool=old_nets_pool, round=round, device=device)
 
 
-
+            # Compute Federated Averaging Weights:
             total_data_points = sum([len(net_dataidx_map[r]) for r in party_list_this_round])
             fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in party_list_this_round]
 
-
+            # iterates through the local models in the current communication round (nets_this_round)
             for net_id, net in enumerate(nets_this_round.values()):
+                # For each local model (net), its state dictionary is retrieved and assigned to the variable net_para. The state dictionary contains the parameters (weights and biases) of the model.
                 net_para = net.state_dict()
+
+                # Aggregating Local Model Updates for Federated Averaging:
                 if net_id == 0:
                     for key in net_para:
                         global_w[key] = net_para[key] * fed_avg_freqs[net_id]
