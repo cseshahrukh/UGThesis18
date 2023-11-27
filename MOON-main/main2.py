@@ -15,6 +15,7 @@ from model import *
 from utils import *
 
 
+# Parsing arguments
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='resnet50', help='neural network used in training')
@@ -104,7 +105,7 @@ def init_nets(net_configs, n_parties, args, device='cpu'):
 
     return nets, model_meta_data, layer_type
 
-#Training Functions: The code provides functions for training individual neural networks (train_net), federated learning with proximal term (train_net_fedprox), and federated contrastive learning (train_net_fedcon).
+
 def train_net(net_id, net, train_dataloader, test_dataloader, epochs, lr, args_optimizer, args, device="cpu"):
     net = nn.DataParallel(net)
     net.cuda()
@@ -339,7 +340,7 @@ def train_net_fedcon(net_id, net, global_net, previous_nets, train_dataloader, t
     logger.info(' ** Training complete **')
     return train_acc, test_acc
 
-# Local Training Function: The local_train_net function simulates local training on each participating client and updates the global model accordingly. This function handles different federated learning strategies based on the specified algorithm (FedAvg, FedProx, Moon, Local Training).
+
 def local_train_net(nets, args, net_dataidx_map, train_dl=None, test_dl=None, global_model = None, prev_model_pool = None, server_c = None, clients_c = None, round=None, device="cpu"):
     avg_acc = 0.0
     acc_list = []
@@ -390,33 +391,48 @@ def local_train_net(nets, args, net_dataidx_map, train_dl=None, test_dl=None, gl
 
 
 if __name__ == '__main__':
-    args = get_args()
+    args = get_args() # args variable contains all the arguments passed to the main.py file
+
+    # Create log and model directories
     mkdirs(args.logdir)
     mkdirs(args.modeldir)
+
+    # Save the arguments passed to the main.py file
     if args.log_file_name is None:
         argument_path = 'experiment_arguments-%s.json' % datetime.datetime.now().strftime("%Y-%m-%d-%H%M-%S")
     else:
         argument_path = args.log_file_name + '.json'
     with open(os.path.join(args.logdir, argument_path), 'w') as f:
         json.dump(str(args), f)
+
+    # Set the device to run the program 
     device = torch.device(args.device)
+
+    # avoid duplicated logs running on the same machine on same time
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
 
+    # if log file name is not specified in the command line, generate a log file name
     if args.log_file_name is None:
         args.log_file_name = 'experiment_log-%s' % (datetime.datetime.now().strftime("%Y-%m-%d-%H%M-%S"))
     log_path = args.log_file_name + '.log'
+
+    # loggin configuration with log file name and other infomation like time, level, etc.
     logging.basicConfig(
         filename=os.path.join(args.logdir, log_path),
         format='%(asctime)s %(levelname)-8s %(message)s',
         datefmt='%m-%d %H:%M', level=logging.DEBUG, filemode='w')
 
     logger = logging.getLogger()
+
+    # It ensures that log messages of all severity levels (DEBUG, INFO, WARNING, ERROR, CRITICAL) will be recorded.
     logger.setLevel(logging.DEBUG)
     logger.info(device)
 
     seed = args.init_seed
-    logger.info("#" * 100)
+    logger.info("#" * 100) # print 100 # symbols
+
+    # Set the seed for reproducibility
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -428,92 +444,152 @@ if __name__ == '__main__':
         args.dataset, args.datadir, args.logdir, args.partition, args.n_parties, beta=args.beta)
 
     n_party_per_round = int(args.n_parties * args.sample_fraction)
+
+    # Generate List of Parties and Sampling for Communication Rounds:
+
+    # party_list: Creates a list of party indices from 0 to args.n_parties - 1
     party_list = [i for i in range(args.n_parties)]
+
+    # list of list of parties for each communication round
+    # where each inner list represents the indices of parties selected for communication rounds.
     party_list_rounds = []
+
+    # make a dictionary of n_parties
+    party_list_dict = {i: i for i in range(args.n_parties)}
+
+
+    # If the number of parties per round is less than the total number of parties, then sample the parties for each round
     if n_party_per_round != args.n_parties:
         for i in range(args.comm_round):
-            party_list_rounds.append(random.sample(party_list, n_party_per_round))
+
+            # random.sample: Returns a k length list of unique elements chosen from the population sequence or set.
+            party_list_rounds.append(random.sample(party_list, n_party_per_round)) 
+
+            
+                     
     else:
         for i in range(args.comm_round):
+            # whole party list is selected for each round
             party_list_rounds.append(party_list)
+            
 
-    n_classes = len(np.unique(y_train))
+    n_classes = len(np.unique(y_train)) # number of classes in the classification task
 
     train_dl_global, test_dl, train_ds_global, test_ds_global = get_dataloader(args.dataset,
                                                                                args.datadir,
                                                                                args.batch_size,
                                                                                32)
 
-    print("len train_dl_global:", len(train_ds_global))
+    print("len train_dl_global:", len(train_ds_global)) # The length represents the number of samples in the training dataset.
     train_dl=None
     data_size = len(test_ds_global)
 
-    logger.info("Initializing nets")
+    logger.info("Initializing nets") # Initialize the neural network
+
+    # initialize local neural networks
     nets, local_model_meta_data, layer_type = init_nets(args.net_config, args.n_parties, args, device='cpu')
 
+    # initialize global neural network
     global_models, global_model_meta_data, global_layer_type = init_nets(args.net_config, 1, args, device='cpu')
     global_model = global_models[0]
     n_comm_rounds = args.comm_round
+
+    # load pretrained model
     if args.load_model_file and args.alg != 'plot_visual':
         global_model.load_state_dict(torch.load(args.load_model_file))
         n_comm_rounds -= args.load_model_round
 
+    # Initialize Momentum for Server (if specified)
     if args.server_momentum:
         moment_v = copy.deepcopy(global_model.state_dict())
         for key in moment_v:
             moment_v[key] = 0
+
+
     if args.alg == 'moon':
+
+        # initializes a pool of old neural network models (old_nets_pool). The purpose of this pool is to store previous models
         old_nets_pool = []
+
+        # If it is, it means that the user has specified a file from which to load old models.
         if args.load_pool_file:
+
+            # Loop to Load Old Models into the Pool:
             for nets_id in range(args.model_buffer_size):
+
+                # For each iteration of the loop, a new set of old models is initialized using the init_nets function. This function seems to initialize neural network models based on the provided configuration 
                 old_nets, _, _ = init_nets(args.net_config, args.n_parties, args, device='cpu')
+
+                # Load Old Model States from Checkpoint:
                 checkpoint = torch.load(args.load_pool_file)
                 for net_id, net in old_nets.items():
                     net.load_state_dict(checkpoint['pool' + str(nets_id) + '_'+'net'+str(net_id)])
+                
+                # Append Loaded Old Models to old_nets_pool
                 old_nets_pool.append(old_nets)
+
+        # also old neural network models are initialized using the init_nets function
+        # Check if Initializing with the First Set of Models is Requested:
+        # it means that the user has specified to initialize the pool with the first set of models.
         elif args.load_first_net:
+
+            # This condition checks whether the current pool of old models (old_nets_pool) has not reached its specified maximum size (args.model_buffer_size).
             if len(old_nets_pool) < args.model_buffer_size:
+
+                # If the pool is not full, a new set of old models (old_nets) is initialized as a deep copy of the current local models (nets). This is done to store the initial state of the models.
                 old_nets = copy.deepcopy(nets)
+
+                # Set the Old Models to Evaluation Mode and Disable Gradient Calculation
                 for _, net in old_nets.items():
                     net.eval()
                     for param in net.parameters():
                         param.requires_grad = False
 
+        # Communication Round loop 
+        # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
+
+            if round == 0: 
+                # initialize the dictionary with a value
+                for party_id in range(args.n_parties):
+                    party_list_dict[party_id] = 200
+
+
             logger.info("in comm round:" + str(round))
+            # Selecting Parties for the Current Round
             party_list_this_round = party_list_rounds[round]
 
             global_model.eval()
             for param in global_model.parameters():
                 param.requires_grad = False
+
+            # Copying Global Model's State for Federated Averaging
             global_w = global_model.state_dict()
 
+            # Copying Global Model's State for Server Momentum (if specified)
             if args.server_momentum:
                 old_w = copy.deepcopy(global_model.state_dict())
 
+            # Loading Global Model's State to Local Models:
+            # The state dictionary of the global model (global_w) is loaded into each local model participating in the current round of communication.
             nets_this_round = {k: nets[k] for k in party_list_this_round}
             for net in nets_this_round.values():
                 net.load_state_dict(global_w)
 
-
+            # Training Local Models:
             local_train_net(nets_this_round, args, net_dataidx_map, train_dl=train_dl, test_dl=test_dl, global_model = global_model, prev_model_pool=old_nets_pool, round=round, device=device)
 
 
-            valueRandom = random.randint(1, 10)
-            total_data_points = 0
+            # Compute Federated Averaging Weights:
+            total_data_points = sum([len(net_dataidx_map[r]) for r in party_list_this_round])
+            fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in party_list_this_round]
 
-            selected_party_list = []
-            for r in party_list_this_round:
-                valueRandom = random.randint(1, 10)
-                if valueRandom>5:
-                    total_data_points += len(net_dataidx_map[r])
-                    selected_party_list.append(r)
-
-            fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in selected_party_list]
-
-
+            # iterates through the local models in the current communication round (nets_this_round)
             for net_id, net in enumerate(nets_this_round.values()):
+                # For each local model (net), its state dictionary is retrieved and assigned to the variable net_para. The state dictionary contains the parameters (weights and biases) of the model.
                 net_para = net.state_dict()
+
+                # Aggregating Local Model Updates for Federated Averaging:
                 if net_id == 0:
                     for key in net_para:
                         global_w[key] = net_para[key] * fed_avg_freqs[net_id]
@@ -565,6 +641,10 @@ if __name__ == '__main__':
                 torch.save(nets[0].state_dict(), args.modeldir+'fedcon/localmodel0'+args.log_file_name+'.pth')
                 for nets_id, old_nets in enumerate(old_nets_pool):
                     torch.save({'pool'+ str(nets_id) + '_'+'net'+str(net_id): net.state_dict() for net_id, net in old_nets.items()}, args.modeldir+'fedcon/prev_model_pool_'+args.log_file_name+'.pth')
+
+            # reduce weight for each party
+            for party_id in range(args.n_parties):
+                party_list_dict[party_id] -= 20
 
 
     elif args.alg == 'fedavg':
