@@ -581,8 +581,15 @@ if __name__ == '__main__':
 
 
             # Compute Federated Averaging Weights:
-            total_data_points = sum([len(net_dataidx_map[r]) for r in party_list_this_round])
-            fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in party_list_this_round]
+            total_data_points=0
+            for r in party_list_this_round:
+                total_data_points += len(net_dataidx_map[r])
+            # total_data_points = sum([len(net_dataidx_map[r]) for r in party_list_this_round])
+
+            fed_avg_freqs = []
+            for r in party_list_this_round:
+                fed_avg_freqs.append(len(net_dataidx_map[r]) / total_data_points)
+            # fed_avg_freqs = [len(net_dataidx_map[r]) / total_data_points for r in party_list_this_round]
 
             # iterates through the local models in the current communication round (nets_this_round)
             for net_id, net in enumerate(nets_this_round.values()):
