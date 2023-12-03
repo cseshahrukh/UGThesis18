@@ -464,7 +464,7 @@ if __name__ == '__main__':
 
             # random.sample: Returns a k length list of unique elements chosen from the population sequence or set.
             party_list_rounds.append(random.sample(party_list, n_party_per_round)) #predetermined
-          
+         
     else:
         for i in range(args.comm_round):
             # whole party list is selected for each round
@@ -544,34 +544,10 @@ if __name__ == '__main__':
                     net.eval()
                     for param in net.parameters():
                         param.requires_grad = False
-        party_list_rounds.clear()
+
         # Communication Round loop 
         # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
-
-            # If the number of parties per round is less than the total number of parties, then sample the parties for each round
-            if n_party_per_round != args.n_parties:
-                # Assuming party_list_dict is a dictionary where party_id maps to the corresponding score
-                # party_list_dict = {party_id: score, ...}
-
-                # Extract parties and scores from the dictionary
-                parties, scores = zip(*party_list_dict.items())
-
-                # Normalize scores to create probabilities
-                total_score = sum(scores)
-                probabilities = [score / total_score for score in scores]
-
-                # Sample parties according to scores
-                selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
-
-                # Append the selected parties to the list of party lists for each communication round
-                party_list_rounds.append(selected_parties)
-   
-            else:
-                # whole party list is selected for each round
-                party_list_rounds.append(party_list)
-
-
 
             if round == 0: 
                 # initialize the dictionary with a value
@@ -691,7 +667,7 @@ if __name__ == '__main__':
 
             # reduce weight for each party
             for party_id in range(args.n_parties):
-                party_list_dict[party_id] -= 20
+                party_list_dict[party_id] -= 10
 
 
     elif args.alg == 'fedavg':
