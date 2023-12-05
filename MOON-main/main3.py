@@ -457,7 +457,6 @@ if __name__ == '__main__':
     # make a dictionary of n_parties
     party_list_dict = {i: i for i in range(args.n_parties)}
 
-
     # If the number of parties per round is less than the total number of parties, then sample the parties for each round
     if n_party_per_round != args.n_parties:
         for i in range(args.comm_round):
@@ -545,6 +544,9 @@ if __name__ == '__main__':
                     for param in net.parameters():
                         param.requires_grad = False
 
+
+        party_list_rounds.clear()
+
         # Communication Round loop 
         # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
@@ -554,6 +556,21 @@ if __name__ == '__main__':
                 for party_id in range(args.n_parties):
                     party_list_dict[party_id] = 200
 
+            # Extract parties and scores from the dictionary
+            parties, scores = zip(*party_list_dict.items())
+
+            # Normalize scores to create probabilities
+            total_score = sum(scores)
+            probabilities = [score / total_score for score in scores]
+
+            # Sample parties according to scores
+            selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
+
+            # Append the selected parties to the list of party lists for each communication round
+            party_list_rounds.append(selected_parties)
+
+            print(selected_parties, "................for round->",round)
+            
 
             logger.info("in comm round:" + str(round))
             # Selecting Parties for the Current Round
@@ -667,8 +684,9 @@ if __name__ == '__main__':
 
             # reduce weight for each party
             for party_id in range(args.n_parties):
-                party_list_dict[party_id] -= 10
+                party_list_dict[party_id] -= 5
 
+            party_list_dict[3]+=500
 
     elif args.alg == 'fedavg':
         for round in range(n_comm_rounds):
