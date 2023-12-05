@@ -457,6 +457,8 @@ if __name__ == '__main__':
     # make a dictionary of n_parties
     party_list_dict = {i: i for i in range(args.n_parties)}
 
+    party_freq = {i: i for i in range(args.n_parties)}
+
     # If the number of parties per round is less than the total number of parties, then sample the parties for each round
     if n_party_per_round != args.n_parties:
         for i in range(args.comm_round):
@@ -555,6 +557,7 @@ if __name__ == '__main__':
                 # initialize the dictionary with a value
                 for party_id in range(args.n_parties):
                     party_list_dict[party_id] = 200
+                    party_freq[party_id] = 0
 
             # Extract parties and scores from the dictionary
             parties, scores = zip(*party_list_dict.items())
@@ -568,6 +571,9 @@ if __name__ == '__main__':
 
             # Append the selected parties to the list of party lists for each communication round
             party_list_rounds.append(selected_parties)
+
+            for i in selected_parties:
+                party_freq[i]+=1
 
             print(selected_parties, "................for round->",round)
             
@@ -640,6 +646,8 @@ if __name__ == '__main__':
             logger.info('>> Global Model Train accuracy: %f' % train_acc)
             logger.info('>> Global Model Test accuracy: %f' % test_acc)
 
+            print("test accuracy",test_acc,".....best acc:",best_test_acc)
+
             if test_acc < best_test_acc:
                 for i in party_list_this_round:
                     party_list_dict[i]-=20
@@ -651,9 +659,9 @@ if __name__ == '__main__':
                     party_list_dict[i]+=20
 
             for i in party_list_dict:
-                print("round ",round ," ",party_list_dict[i],"  ............ ")
+                print("round ",round ," ",i,"th client",party_list_dict[i],"  ............ ")
 
-
+            print("party_freq.....round",round,party_freq)
 
             logger.info('>> Global Model Train loss: %f' % train_loss)
 
@@ -686,7 +694,7 @@ if __name__ == '__main__':
             for party_id in range(args.n_parties):
                 party_list_dict[party_id] -= 5
 
-            party_list_dict[3]+=500
+            # party_list_dict[3]+=500
 
     elif args.alg == 'fedavg':
         for round in range(n_comm_rounds):
