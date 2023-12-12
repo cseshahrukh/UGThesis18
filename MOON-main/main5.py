@@ -701,9 +701,9 @@ if __name__ == '__main__':
             # reduce weight for each party
             for party_id in range(args.n_parties):
                 party_list_dict[party_id] -= 5
-                if party_list_dict[i]<0:
+                if party_list_dict[party_id]<0:
                     isNegative=True
-                    addMore=min(addMore,party_list_dict[i])
+                    addMore=min(addMore,party_list_dict[party_id])
             if isNegative:
                 for i in range(args.n_parties):
                     party_list_dict[i]-=addMore
