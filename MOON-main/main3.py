@@ -564,7 +564,10 @@ if __name__ == '__main__':
 
             # Normalize scores to create probabilities
             total_score = sum(scores)
+                # normalize the scores to create probability
             probabilities = [score / total_score for score in scores]
+            # normalize the scores to create probabilities
+
 
             # Sample parties according to scores
             selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
@@ -651,12 +654,15 @@ if __name__ == '__main__':
             if test_acc < best_test_acc:
                 for i in party_list_this_round:
                     party_list_dict[i]-=20
+                    # if party_list_dict[i]<1:
+                    #     party_list_dict[i]=1
 
-
+            
             if test_acc > best_test_acc:
                 best_test_acc = test_acc
                 for i in party_list_this_round:
                     party_list_dict[i]+=20
+                    
 
             for i in party_list_dict:
                 print("round ",round ," ",i,"th client",party_list_dict[i],"  ............ ")
@@ -690,9 +696,17 @@ if __name__ == '__main__':
                 for nets_id, old_nets in enumerate(old_nets_pool):
                     torch.save({'pool'+ str(nets_id) + '_'+'net'+str(net_id): net.state_dict() for net_id, net in old_nets.items()}, args.modeldir+'fedcon/prev_model_pool_'+args.log_file_name+'.pth')
 
+            isNegative = False
+            addMore=0 
             # reduce weight for each party
             for party_id in range(args.n_parties):
                 party_list_dict[party_id] -= 5
+                if party_list_dict[i]<0:
+                        isNegative=True
+                        addMore=min(addMore,party_list_dict[i])
+            if isNegative:
+                for i in range(args.n_parties):
+                    party_list_dict[i]-=addMore
 
             # party_list_dict[3]+=500
 

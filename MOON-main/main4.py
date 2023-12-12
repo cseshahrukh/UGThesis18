@@ -675,10 +675,17 @@ if __name__ == '__main__':
                 for nets_id, old_nets in enumerate(old_nets_pool):
                     torch.save({'pool'+ str(nets_id) + '_'+'net'+str(net_id): net.state_dict() for net_id, net in old_nets.items()}, args.modeldir+'fedcon/prev_model_pool_'+args.log_file_name+'.pth')
 
+            isNegative = False
+            addMore=0 
             # reduce weight for each party
             for party_id in range(args.n_parties):
-                party_list_dict[party_id] -= 10
-
+                party_list_dict[party_id] -= 5
+                if party_list_dict[i]<0:
+                    isNegative=True
+                    addMore=min(addMore,party_list_dict[i])
+            if isNegative:
+                for i in range(args.n_parties):
+                    party_list_dict[i]-=addMore
 
     elif args.alg == 'fedavg':
         for round in range(n_comm_rounds):
