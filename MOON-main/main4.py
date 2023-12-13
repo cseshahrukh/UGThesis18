@@ -646,6 +646,10 @@ if __name__ == '__main__':
             for i in party_list_dict:
                 print("round ",round ," ",party_list_dict[i],"  ............ ")
 
+            print("round",round,"test accuracy",test_acc)
+
+            # print("party_freq.....round",round,party_freq)
+
 
 
             logger.info('>> Global Model Train loss: %f' % train_loss)
