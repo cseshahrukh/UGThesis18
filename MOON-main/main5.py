@@ -507,8 +507,7 @@ if __name__ == '__main__':
 
     if args.alg == 'moon':
 
-        best_test_acc = 0
-        prev_test_acc = 1
+        prev_test_acc = 0
 
         # initializes a pool of old neural network models (old_nets_pool). The purpose of this pool is to store previous models
         old_nets_pool = []
@@ -647,17 +646,12 @@ if __name__ == '__main__':
             logger.info('>> Global Model Train accuracy: %f' % train_acc)
             logger.info('>> Global Model Test accuracy: %f' % test_acc)
 
-            print("test accuracy",test_acc,".....best acc:",best_test_acc)
+            print("test accuracy",test_acc)
 
-            if test_acc < prev_test_acc:
-                for i in party_list_this_round:
-                    party_list_dict[i]-=((prev_test_acc-test_acc)/prev_test_acc)*100
+            for i in party_list_this_round:
+                party_list_dict[i]+=((test_acc-prev_test_acc)/test_acc)*100
 
-
-            if test_acc > prev_test_acc:
-                best_test_acc = test_acc
-                for i in party_list_this_round:
-                    party_list_dict[i]+=((prev_test_acc-test_acc)/prev_test_acc)*100
+            prev_test_acc = test_acc
 
             # normalize the scores to remove overflow 
             total_score = sum(party_list_dict.values())
@@ -700,7 +694,7 @@ if __name__ == '__main__':
             addMore=0 
             # reduce weight for each party
             for party_id in range(args.n_parties):
-                party_list_dict[party_id] -= 5
+                party_list_dict[party_id] -= 0.01
                 if party_list_dict[party_id]<0:
                     isNegative=True
                     addMore=min(addMore,party_list_dict[party_id])
@@ -708,7 +702,6 @@ if __name__ == '__main__':
                 for i in range(args.n_parties):
                     party_list_dict[i]-=addMore
 
-            # party_list_dict[3]+=500
 
     elif args.alg == 'fedavg':
         for round in range(n_comm_rounds):
