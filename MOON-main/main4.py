@@ -453,6 +453,7 @@ if __name__ == '__main__':
     # list of list of parties for each communication round
     # where each inner list represents the indices of parties selected for communication rounds.
     party_list_rounds = []
+    party_freq = {i: i for i in range(args.n_parties)}
 
     # make a dictionary of n_parties
     party_list_dict = {i: i for i in range(args.n_parties)}
@@ -546,6 +547,8 @@ if __name__ == '__main__':
                     for param in net.parameters():
                         param.requires_grad = False
 
+        party_list_rounds.clear()
+
         # Communication Round loop 
         # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
@@ -554,8 +557,27 @@ if __name__ == '__main__':
                 # initialize the dictionary with a value
                 for party_id in range(args.n_parties):
                     party_list_dict[party_id] = 200
+                    party_freq[party_id] = 0
 
+            # Extract parties and scores from the dictionary
+            parties, scores = zip(*party_list_dict.items())
 
+            # Normalize scores to create probabilities
+            total_score = sum(scores)
+            probabilities = [score / total_score for score in scores]
+
+            # Sample parties according to scores
+            selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
+
+            # Append the selected parties to the list of party lists for each communication round
+            party_list_rounds.append(selected_parties)
+
+            for i in selected_parties:
+                party_freq[i]+=1
+
+            print(selected_parties, "................for round->",round)
+            
+            
             logger.info("in comm round:" + str(round))
             # Selecting Parties for the Current Round
             party_list_this_round = party_list_rounds[round]
@@ -648,7 +670,7 @@ if __name__ == '__main__':
 
             print("round",round,"test accuracy",test_acc)
 
-            # print("party_freq.....round",round,party_freq)
+            print("party_freq.....round",round,party_freq)
 
 
 
