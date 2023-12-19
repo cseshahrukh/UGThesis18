@@ -545,6 +545,8 @@ if __name__ == '__main__':
             # Selecting Parties for the Current Round
             party_list_this_round = party_list_rounds[round]
 
+            print(party_list_this_round, "................for round->",round)
+
             global_model.eval()
             for param in global_model.parameters():
                 param.requires_grad = False
@@ -601,8 +603,10 @@ if __name__ == '__main__':
             global_model.to('cpu')
             logger.info('>> Global Model Train accuracy: %f' % train_acc)
             logger.info('>> Global Model Test accuracy: %f' % test_acc)
-            print("In round ", round, " :  ")
-            print("test accuracy",test_acc)
+            
+            print("round",round,"test accuracy",test_acc)
+
+
             logger.info('>> Global Model Train loss: %f' % train_loss)
 
 
