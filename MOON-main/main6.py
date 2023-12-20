@@ -507,6 +507,8 @@ if __name__ == '__main__':
 
     if args.alg == 'moon':
 
+        e = 0.1 #evaporation const
+        epsilon = 0.2
         best_test_acc = 0
         prev_test_acc = 0
 
@@ -553,6 +555,8 @@ if __name__ == '__main__':
         # Each iteration represents one round of communication between the central server (global model) and a subset of participating parties.
         for round in range(n_comm_rounds):
 
+            p = random.random()
+
             if round == 0: 
                 # initialize the dictionary with a value
                 for party_id in range(args.n_parties):
@@ -567,16 +571,21 @@ if __name__ == '__main__':
             probabilities = [score / total_score for score in scores]
 
             # Sample parties according to scores
-            selected_parties = np.random.choice(parties, size=min(n_party_per_round, len(parties)), replace=False, p=probabilities)
+
+            if p > epsilon:
+                selected_parties = np.random.choice(parties, size=min(n_party_per_round, len(parties)), replace=False, p=probabilities)
+                # selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
+                # Append the selected parties to the list of party lists for each communication round
+
+            else :
+                selected_parties = random.sample(party_list, n_party_per_round)
             
-            # Append the selected parties to the list of party lists for each communication round
             party_list_rounds.append(selected_parties)
 
             for i in selected_parties:
                 party_freq[i]+=1
 
             print(selected_parties, "................for round->",round)
-            
             
             logger.info("in comm round:" + str(round))
             # Selecting Parties for the Current Round
@@ -646,29 +655,22 @@ if __name__ == '__main__':
             logger.info('>> Global Model Train accuracy: %f' % train_acc)
             logger.info('>> Global Model Test accuracy: %f' % test_acc)
 
-            if test_acc < best_test_acc:
-                for i in party_list_this_round:
-                    party_list_dict[i]-=20
 
-            if prev_test_acc > test_acc:
+            if p > epsilon:
                 for i in party_list_this_round:
-                    party_list_dict[i]-=10
+                    if best_test_acc != 0:
+                        party_list_dict[i]*=(test_acc/best_test_acc)
 
-            if test_acc > best_test_acc:
-                best_test_acc = test_acc
-                for i in party_list_this_round:
-                    party_list_dict[i]+=20
-
-            if prev_test_acc < test_acc:
-                for i in party_list_this_round:
-                    party_list_dict[i]+=10
-
-            prev_test_acc = test_acc
+                if test_acc > best_test_acc:
+                    best_test_acc = test_acc
 
             for i in party_list_dict:
                 print("round ",round ," ",party_list_dict[i],"  ............ ")
 
-            print("round",round,"test accuracy",test_acc)
+            if p <= epsilon:
+                print("random ...round",round,"test accuracy",test_acc)
+            else:
+                print("exact... round",round,"test accuracy",test_acc)
 
             print("party_freq.....round",round,party_freq)
 
@@ -701,17 +703,19 @@ if __name__ == '__main__':
                 for nets_id, old_nets in enumerate(old_nets_pool):
                     torch.save({'pool'+ str(nets_id) + '_'+'net'+str(net_id): net.state_dict() for net_id, net in old_nets.items()}, args.modeldir+'fedcon/prev_model_pool_'+args.log_file_name+'.pth')
 
-            isNegative = False
-            addMore=0 
-            # reduce weight for each party
-            for party_id in range(args.n_parties):
-                party_list_dict[party_id] -= 5
-                if party_list_dict[party_id]<0:
-                    isNegative=True
-                    addMore=min(addMore,party_list_dict[party_id])
-            if isNegative:
-                for i in range(args.n_parties):
-                    party_list_dict[i]-=addMore
+
+            if p > epsilon:
+                isNegative = False
+                addMore=0 
+                # reduce weight for each party
+                for party_id in range(args.n_parties):
+                    party_list_dict[party_id] *= (1-e)
+                    if party_list_dict[party_id]<0:
+                        isNegative=True
+                        addMore=min(addMore,party_list_dict[party_id])
+                if isNegative:
+                    for i in range(args.n_parties):
+                        party_list_dict[i]-=addMore
 
     elif args.alg == 'fedavg':
         for round in range(n_comm_rounds):

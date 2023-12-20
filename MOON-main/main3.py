@@ -570,7 +570,8 @@ if __name__ == '__main__':
 
 
             # Sample parties according to scores
-            selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
+            # selected_parties = random.choices(parties, weights=probabilities, k=n_party_per_round)
+            selected_parties = np.random.choice(parties, size=min(n_party_per_round, len(parties)), replace=False, p=probabilities)
 
             # Append the selected parties to the list of party lists for each communication round
             party_list_rounds.append(selected_parties)
