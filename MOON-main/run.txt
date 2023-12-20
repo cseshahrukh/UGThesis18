@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 python main.py --dataset=cifar10 --model=simple-cnn --alg=moon --sample_fraction=0.5 --lr=0.01 --mu=5 --epochs=10 --comm_round=50 --n_parties=10 --partition=noniid --beta=0.5 --logdir='./logs/' --device='cuda'
+=======
+python main2.py --dataset=cifar10 --model=simple-cnn --alg=moon --sample_fraction=0.5 --lr=0.01 --mu=5 --epochs=10 --comm_round=50 --n_parties=10 --partition=noniid --beta=0.5 --logdir='./logs/' --device='cuda'
+>>>>>>> 60114faf7fb2d9ed0bf8b6b387629171a7dd92c5
