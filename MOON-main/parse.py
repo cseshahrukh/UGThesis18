@@ -24,4 +24,4 @@ def plot_accuracy_vs_round(file_path):
     plt.show()
 
 # Replace 'your_file.txt' with the actual path to your text file
-plot_accuracy_vs_round('result_main4.txt')
+plot_accuracy_vs_round('result_main4_modified.txt')
